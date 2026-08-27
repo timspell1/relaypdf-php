@@ -101,7 +101,7 @@ final class ClientTest extends TestCase
             $this->fail('expected error');
         } catch (RelayPDFError $err) {
             $this->assertSame(429, $err->status);
-            $this->assertSame('rate_limited', $err->code);
+            $this->assertSame('rate_limited', $err->errorCode);
             $this->assertSame(10, $err->retryAfter);
         }
     }

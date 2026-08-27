@@ -7,6 +7,7 @@ Official PHP client for [RelayPDF](https://relaypdf.com).
 Uses `ext-curl` and `ext-json`. Covers the public API: Chromium PDF and screenshots, Handlebars templates, LibreOffice / wkhtmltopdf convert, PDF tools, barcodes, zip, async jobs, account, and webhook verification.
 
 - **Docs:** [relaypdf.com/docs/sdks/php](https://relaypdf.com/docs/sdks/php)
+- **Source:** [timspell1/relaypdf-php](https://github.com/timspell1/relaypdf-php)
 - **REST:** [relaypdf.com/docs](https://relaypdf.com/docs)
 - **OpenAPI:** [relaypdf.com/openapi.json](https://relaypdf.com/openapi.json)
 - **Support:** [support@relaypdf.com](mailto:support@relaypdf.com)
@@ -23,12 +24,12 @@ JSON body field names match REST (`html`, `printBackground`, `sourceFilename`, `
 composer require relaypdf/relaypdf
 ```
 
-Until Packagist publish, require the path in this repo:
+Until Packagist publish, require the public GitHub repo:
 
 ```json
 {
-  "repositories": [{ "type": "path", "url": "../sdks/php" }],
-  "require": { "relaypdf/relaypdf": "*" }
+  "repositories": [{ "type": "vcs", "url": "https://github.com/timspell1/relaypdf-php" }],
+  "require": { "relaypdf/relaypdf": "^0.1.0" }
 }
 ```
 
@@ -70,7 +71,7 @@ $client->files->download($done['id'])->save('deck.pdf');
 
 ## Errors
 
-Throws `RelayPDFError` with `status`, `code`, `message`, and optional `retryAfter`.
+Throws `RelayPDFError` with `status`, `errorCode`, `message`, and optional `retryAfter`. (`Exception::$code` is an integer, so the API code lives on `errorCode`.)
 
 Codes: `invalid_request`, `url_not_allowed`, `unauthorized`, `payment_required`, `account_suspended`, `not_found`, `payload_too_large`, `rate_limited`, `render_failed`, `processing_failed`, `convert_unavailable`, `ai_unavailable`, `storage_unavailable`, `internal_error`.
 
