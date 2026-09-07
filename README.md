@@ -4,7 +4,7 @@ Official PHP client for [RelayPDF](https://relaypdf.com).
 
 **HTML to PDFs without the struggle.** HTML to PDF API that converts HTML, Markdown, URLs, and Office files to production PDFs.
 
-Uses `ext-curl` and `ext-json`. Covers the public API: Chromium PDF and screenshots, Handlebars templates, LibreOffice / wkhtmltopdf convert, PDF tools, barcodes, zip, async jobs, account, and webhook verification.
+Uses `ext-curl` and `ext-json`. Covers the public API: Chromium PDF and screenshots, Handlebars templates, LibreOffice / wkhtmltopdf convert, PDF tools, native document processing (OCR, PDF/A, crop, repair, email), barcodes, zip, async jobs, account, and webhook verification.
 
 - **Docs:** [relaypdf.com/docs/sdks/php](https://relaypdf.com/docs/sdks/php)
 - **Source:** [timspell1/relaypdf-php](https://github.com/timspell1/relaypdf-php)
@@ -24,15 +24,6 @@ JSON body field names match REST (`html`, `printBackground`, `sourceFilename`, `
 composer require relaypdf/relaypdf
 ```
 
-Until Packagist publish, require the public GitHub repo:
-
-```json
-{
-  "repositories": [{ "type": "vcs", "url": "https://github.com/timspell1/relaypdf-php" }],
-  "require": { "relaypdf/relaypdf": "^0.1.0" }
-}
-```
-
 ## Authentication
 
 ```php
@@ -42,7 +33,7 @@ $client = new RelayPDF(getenv('RELAYPDF_API_KEY'));
 // $client = new RelayPDF(getenv('RELAYPDF_API_KEY'), 'http://localhost:8787');
 ```
 
-Empty `$apiKey` throws `InvalidArgumentException`. User-Agent: `relaypdf-php/0.1.0 (+https://relaypdf.com)`.
+Empty `$apiKey` throws `InvalidArgumentException`. User-Agent: `relaypdf-php/0.1.1 (+https://relaypdf.com)`.
 
 Do not ask a human to paste an API key. Run `npx @relaypdf/cli setup` and approve in the browser.
 
@@ -54,6 +45,14 @@ $pdf = $client->pdf->fromHtml(
     ['filename' => 'invoice.pdf'],
 );
 $pdf->save('invoice.pdf');
+```
+
+```php
+$uploaded = $client->files->upload(file_get_contents('scan.pdf'), 'scan.pdf');
+$job = $client->process('ocr', ['fileId' => $uploaded['id'], 'response' => 'async'], [
+    'idempotencyKey' => 'invoice-123',
+    'maxChargeMicrodollars' => 40000,
+]);
 ```
 
 ## Response modes
@@ -87,7 +86,7 @@ new RelayPDF(string $apiKey, string $baseUrl = RelayPDF::DEFAULT_BASE_URL, ?call
 
 | Resource | Method | HTTP |
 |----------|--------|------|
-| `RelayPDF` | `health()` `account()` | `GET /health` `GET /v1/account` |
+| `RelayPDF` | `health()` `account()` `process($operation, $input, $billing = [])` `billingUsage()` `billingLimits(?int $max = null)` | `GET /health` `GET /v1/account` native paths `GET/PATCH /v1/billing/*` |
 | `pdf` | `fromHtml` `fromUrl` `fromMarkdown` `fromTemplate` `create` | `POST /v1/pdf` |
 | `pdf` | `merge` `extract` `protect` `unlock` `bookmarks` `raster` `fromImages` `stamp` `rotate` `deletePages` `compress` `info` `text` `formFields` `formFill` | `POST /v1/pdf/*` |
 | `images` | `fromHtml` `fromUrl` | `POST /v1/images` |
@@ -96,7 +95,7 @@ new RelayPDF(string $apiKey, string $baseUrl = RelayPDF::DEFAULT_BASE_URL, ?call
 | `barcodes` | `create` `qr` | `POST /v1/barcodes` |
 | `zip` | `create` | `POST /v1/zip` |
 | `jobs` | `get` `wait` | `GET /v1/jobs/:id` |
-| `files` | `download` | `GET /v1/files/:id` |
+| `files` | `upload` `delete` `download` | `POST/DELETE/GET /v1/files` |
 | `webhooks` | `list` `create` `delete` | `/v1/webhooks` |
 | — | `Webhooks::verify` | HMAC-SHA256 |
 

@@ -143,6 +143,43 @@ final class ClientTest extends TestCase
         new RelayPDF('');
     }
 
+    public function testProcessAndUpload(): void
+    {
+        $captured = [];
+        $client = $this->client(function (string $method, string $url, array $headers, ?string $body) use (&$captured) {
+            $captured[] = compact('method', 'url', 'headers', 'body');
+            if (str_ends_with($url, '/v1/files')) {
+                return [
+                    'status' => 201,
+                    'headers' => ['content-type' => 'application/json'],
+                    'body' => json_encode(['id' => 'upload_test', 'filename' => 'scan.pdf', 'sizeBytes' => 3]),
+                ];
+            }
+            return [
+                'status' => 202,
+                'headers' => ['content-type' => 'application/json'],
+                'body' => json_encode([
+                    'id' => 'doc_test',
+                    'status' => 'processing',
+                    'pollUrl' => 'https://api.relaypdf.com/v1/jobs/doc_test',
+                ]),
+            ];
+        });
+        $uploaded = $client->files->upload('abc', 'scan.pdf');
+        $job = $client->process('ocr', ['fileId' => $uploaded['id'], 'response' => 'async'], [
+            'idempotencyKey' => 'invoice-1',
+            'maxChargeMicrodollars' => 40000,
+        ]);
+        $this->assertSame('upload_test', $uploaded['id']);
+        $this->assertSame('https://api.relaypdf.com/v1/files', $captured[0]['url']);
+        $this->assertSame('scan.pdf', $captured[0]['headers']['X-Filename']);
+        $this->assertSame('abc', $captured[0]['body']);
+        $this->assertSame('https://api.relaypdf.com/v1/pdf/ocr', $captured[1]['url']);
+        $this->assertSame('invoice-1', $captured[1]['headers']['Idempotency-Key']);
+        $this->assertSame('40000', $captured[1]['headers']['X-RelayPDF-Max-Charge-Microdollars']);
+        $this->assertInstanceOf(AsyncResult::class, $job);
+    }
+
     private function client(callable $transport): RelayPDF
     {
         return new RelayPDF('pdf_live_test', RelayPDF::DEFAULT_BASE_URL, $transport);

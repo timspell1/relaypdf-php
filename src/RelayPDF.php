@@ -50,7 +50,7 @@ final class AsyncResult
 final class RelayPDF
 {
     public const DEFAULT_BASE_URL = 'https://api.relaypdf.com';
-    public const VERSION = '0.1.0';
+    public const VERSION = '0.1.1';
     public const USER_AGENT = 'relaypdf-php/' . self::VERSION . ' (+https://relaypdf.com)';
 
     public readonly PdfResource $pdf;
@@ -89,6 +89,46 @@ final class RelayPDF
         $this->webhooks = new WebhooksResource($this);
     }
 
+    /** Input accepts url, base64 file or an uploaded fileId. */
+    public function process(string $operation, array $input, array $billing = []): BinaryResult|UrlResult|AsyncResult
+    {
+        $paths = [
+            'ocr' => '/v1/pdf/ocr',
+            'pdfa' => '/v1/pdf/pdfa',
+            'crop' => '/v1/pdf/crop',
+            'resize' => '/v1/pdf/resize',
+            'repair' => '/v1/pdf/repair',
+            'optimize' => '/v1/pdf/optimize',
+            'attachments' => '/v1/pdf/attachments',
+            'extract-images' => '/v1/pdf/extract-images',
+            'compress' => '/v1/pdf/compress-advanced',
+            'image-convert' => '/v1/images/convert',
+            'email' => '/v1/email'
+        ];
+        if (!isset($paths[$operation])) throw new \InvalidArgumentException('Unknown document operation');
+        $headers = [];
+        if (!empty($billing['idempotencyKey'])) {
+            $headers['Idempotency-Key'] = (string) $billing['idempotencyKey'];
+        }
+        if (array_key_exists('maxChargeMicrodollars', $billing) && $billing['maxChargeMicrodollars'] !== null) {
+            $headers['X-RelayPDF-Max-Charge-Microdollars'] = (string) $billing['maxChargeMicrodollars'];
+        }
+        return $this->generate($paths[$operation], $input, $headers);
+    }
+
+    public function billingUsage(): array
+    {
+        return json_decode($this->request('/v1/billing/usage')['body'], true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    public function billingLimits(?int $maxJobMicrodollars = null): array
+    {
+        $response = func_num_args() === 0
+            ? $this->request('/v1/billing/limits')
+            : $this->request('/v1/billing/limits', 'PATCH', ['maxJobMicrodollars' => $maxJobMicrodollars]);
+        return json_decode($response['body'], true, 512, JSON_THROW_ON_ERROR);
+    }
+
     public function health(): array
     {
         return json_decode($this->request('/health', 'GET', null, false)['body'], true, 512, JSON_THROW_ON_ERROR);
@@ -101,16 +141,19 @@ final class RelayPDF
 
     /**
      * @param array<string, mixed>|null $body
+     * @param array<string, string> $extraHeaders
      * @return array{status:int, headers:array<string,string>, body:string}
      */
-    public function request(string $path, string $method = 'GET', ?array $body = null, bool $auth = true): array
+    public function request(string $path, string $method = 'GET', ?array $body = null, bool $auth = true, array $extraHeaders = [], ?string $raw = null): array
     {
-        $headers = ['User-Agent' => self::USER_AGENT];
+        $headers = ['User-Agent' => self::USER_AGENT] + $extraHeaders;
         $payload = null;
         if ($auth) {
             $headers['Authorization'] = 'Bearer ' . $this->apiKey;
         }
-        if ($body !== null) {
+        if ($raw !== null) {
+            $payload = $raw;
+        } elseif ($body !== null) {
             $headers['Content-Type'] = 'application/json';
             $payload = json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         }
@@ -121,9 +164,9 @@ final class RelayPDF
         return $response;
     }
 
-    public function generate(string $path, array $body): BinaryResult|UrlResult|AsyncResult
+    public function generate(string $path, array $body, array $headers = []): BinaryResult|UrlResult|AsyncResult
     {
-        $response = $this->request($path, 'POST', $body);
+        $response = $this->request($path, 'POST', $body, true, $headers);
         if ($response['status'] === 202) {
             $payload = json_decode($response['body'], true, 512, JSON_THROW_ON_ERROR);
             return new AsyncResult('async', $payload['id'], 'processing', $payload['pollUrl']);
@@ -669,6 +712,28 @@ final class FilesResource
             header_get($response['headers'], 'content-type') ?: 'application/octet-stream',
             $response['body'],
         );
+    }
+
+    public function upload(string $bytes, string $filename = 'upload.bin'): array
+    {
+        return json_decode($this->client->request(
+            '/v1/files',
+            'POST',
+            null,
+            true,
+            [
+                'Content-Type' => 'application/octet-stream',
+                'Content-Length' => (string) strlen($bytes),
+                'X-Filename' => $filename,
+            ],
+            $bytes,
+        )['body'], true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    public function delete(string $id): array
+    {
+        $raw = $this->client->request('/v1/files/' . rawurlencode($id), 'DELETE')['body'];
+        return $raw === '' ? ['ok' => true] : json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
     }
 }
 
