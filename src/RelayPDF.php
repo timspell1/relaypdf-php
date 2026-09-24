@@ -50,7 +50,7 @@ final class AsyncResult
 final class RelayPDF
 {
     public const DEFAULT_BASE_URL = 'https://api.relaypdf.com';
-    public const VERSION = '0.1.1';
+    public const VERSION = '0.1.2';
     public const USER_AGENT = 'relaypdf-php/' . self::VERSION . ' (+https://relaypdf.com)';
 
     public readonly PdfResource $pdf;
@@ -93,6 +93,7 @@ final class RelayPDF
     public function process(string $operation, array $input, array $billing = []): BinaryResult|UrlResult|AsyncResult
     {
         $paths = [
+            'redact' => '/v1/pdf/redact',
             'ocr' => '/v1/pdf/ocr',
             'pdfa' => '/v1/pdf/pdfa',
             'crop' => '/v1/pdf/crop',

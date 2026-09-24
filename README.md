@@ -33,7 +33,7 @@ $client = new RelayPDF(getenv('RELAYPDF_API_KEY'));
 // $client = new RelayPDF(getenv('RELAYPDF_API_KEY'), 'http://localhost:8787');
 ```
 
-Empty `$apiKey` throws `InvalidArgumentException`. User-Agent: `relaypdf-php/0.1.1 (+https://relaypdf.com)`.
+Empty `$apiKey` throws `InvalidArgumentException`. User-Agent: `relaypdf-php/0.1.2 (+https://relaypdf.com)`.
 
 Do not ask a human to paste an API key. Run `npx @relaypdf/cli setup` and approve in the browser.
 
